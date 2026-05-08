@@ -22,7 +22,7 @@ def mount_encrypted_fs(
     config: Config | None = None,
 ) -> KeePass | None:
     """Mount an encrypted filesystem using a password from KeePass.
-    
+
     Args:
         vault_enc: Path to encrypted vault directory
         vault_dec: Path to mount decrypted vault
@@ -31,10 +31,10 @@ def mount_encrypted_fs(
         title: Title to match in KeePass entries (defaults to enctype)
         return_kp: Whether to return the KeePass object
         config: Config object (alternative to individual parameters)
-        
+
     Returns:
         KeePass instance if return_kp=True, otherwise None
-        
+
     Raises:
         ValueError: If required parameters are missing or validation fails
         RuntimeError: If encryption type is not installed or auto-detection fails
@@ -102,14 +102,14 @@ def mount_encrypted_fs(
             )
 
             # Pass password directly via stdin and capture output
-            # Password bytes are cleared after use
+            # Convert to bytearray for secure memory clearing
             try:
-                password_bytes = password.encode()
+                password_bytes = bytearray(password.encode())
                 stdout, stderr = p.communicate(input=password_bytes, timeout=30)
-                
-                # Clear password bytes from memory (best effort)
-                password_bytes[:] = b'\x00' * len(password_bytes) if isinstance(password_bytes, bytearray) else None
-                
+
+                # Clear password bytes from memory
+                password_bytes[:] = b'\x00' * len(password_bytes)
+
                 if p.returncode != 0:
                     stderr_msg = stderr.decode(errors='replace').strip()
                     raise RuntimeError(
@@ -119,8 +119,8 @@ def mount_encrypted_fs(
             except subprocess.TimeoutExpired:
                 p.kill()
                 raise RuntimeError(
-                    f"Mount command timed out after 30 seconds. "
-                    f"Check your password and encryption settings."
+                    "Mount command timed out after 30 seconds. "
+                    "Check your password and encryption settings."
                 )
             break
         else:

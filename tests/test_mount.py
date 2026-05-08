@@ -72,6 +72,8 @@ def test_mount_cryfs(mock_cryfs_kp: MockKeePass, tmp_path: Path) -> None:
         mock_run.return_value = MagicMock(returncode=0)
         mock_proc = MagicMock()
         mock_proc.stdout = MagicMock()
+        mock_proc.communicate.return_value = (b"", b"")
+        mock_proc.returncode = 0
         mock_popen.return_value = mock_proc
 
         mount_encrypted_fs(
@@ -103,6 +105,8 @@ def test_mount_gocryptfs(mock_gocryptfs_kp: MockKeePass, tmp_path: Path) -> None
         mock_run.return_value = MagicMock(returncode=0)
         mock_proc = MagicMock()
         mock_proc.stdout = MagicMock()
+        mock_proc.communicate.return_value = (b"", b"")
+        mock_proc.returncode = 0
         mock_popen.return_value = mock_proc
 
         mount_encrypted_fs(
@@ -179,6 +183,8 @@ def test_mount_with_config(mock_gocryptfs_kp: MockKeePass, tmp_path: Path) -> No
         mock_run.return_value = MagicMock(returncode=0)
         mock_proc = MagicMock()
         mock_proc.stdout = MagicMock()
+        mock_proc.communicate.return_value = (b"", b"")
+        mock_proc.returncode = 0
         mock_popen.return_value = mock_proc
 
         mount_encrypted_fs(kp=mock_gocryptfs_kp, config=config)
@@ -200,6 +206,8 @@ def test_default_title_from_enctype(mock_cryfs_kp: MockKeePass, tmp_path: Path) 
         mock_run.return_value = MagicMock(returncode=0)
         mock_proc = MagicMock()
         mock_proc.stdout = MagicMock()
+        mock_proc.communicate.return_value = (b"", b"")
+        mock_proc.returncode = 0
         mock_popen.return_value = mock_proc
 
         # No title provided, should default to "cryfs"
