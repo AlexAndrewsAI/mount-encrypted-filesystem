@@ -1,0 +1,66 @@
+[project]
+name = "mount-encrypted-filesystem"
+version = "0.1.0"
+description = "CLI tool for mounting encrypted filesystems with KeePass password integration"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "AlexAndrewsAI", email = "alex.andrews.ai@protonmail.com"}
+]
+keywords = ["encryption", "filesystem", "mount", "keepass", "gocryptfs", "cryfs", "cli"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
+dependencies = [
+    "pydantic>=2.0",
+    "typer>0.9.0",
+    "keepass-wrapper @ git+https://github.com/AlexAndrewsAI/keepass-wrapper.git",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "ruff",
+    "mypy",
+    "uv",
+]
+
+[project.urls]
+Homepage = "https://github.com/AlexAndrewsAI/mount-encrypted-filesystem"
+Repository = "https://github.com/AlexAndrewsAI/mount-encrypted-filesystem.git"
+Documentation = "https://github.com/AlexAndrewsAI/mount-encrypted-filesystem#readme"
+
+[dependency-groups]
+dev = [
+    "pytest>=7.0",
+    "ruff",
+    "mypy",
+]
+
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+
+[project.scripts]
+mount-encfs = "mount_encrypted_filesystem.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
