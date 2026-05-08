@@ -1,4 +1,3 @@
-import logging
 import subprocess
 from pathlib import Path
 
@@ -12,8 +11,6 @@ from mount_encrypted_filesystem.config import (
     detect_enctype,
 )
 
-logger = logging.getLogger(__name__)
-
 
 def mount_encrypted_fs(
     vault_enc: str | None = None,
@@ -24,24 +21,6 @@ def mount_encrypted_fs(
     return_kp: bool = False,
     config: Config | None = None,
 ) -> KeePass | None:
-    """Mount an encrypted filesystem using a password from KeePass.
-    
-    Args:
-        vault_enc: Path to encrypted vault directory
-        vault_dec: Path to mount decrypted vault
-        kp: KeePass instance for password retrieval
-        enctype: Encryption type (gocryptfs or cryfs). Auto-detected if not specified.
-        title: Title to match in KeePass entries (defaults to enctype)
-        return_kp: Whether to return the KeePass object
-        config: Config object (alternative to individual parameters)
-        
-    Returns:
-        KeePass instance if return_kp=True, otherwise None
-        
-    Raises:
-        ValueError: If required parameters are missing or validation fails
-        RuntimeError: If encryption type is not installed or auto-detection fails
-    """
     if config is not None:
         vault_enc = config.vault_enc
         vault_dec = config.vault_dec
@@ -60,7 +39,7 @@ def mount_encrypted_fs(
                 f"Expected one of: {', '.join(ENCTYPE_PATTERNS.values())}"
             )
         enctype = detected
-        logger.info(f"Auto-detected encryption type: {enctype}")
+        print(f"Auto-detected encryption type: {enctype}")
 
     if title is None:
         title = enctype
@@ -81,7 +60,7 @@ def mount_encrypted_fs(
 
     # check if gocrypt drive decrypted
     if not Path(f"{vault_dec}/README.md").exists():
-        logger.info(f"Need to mount {vault_dec} drive")
+        print(f"Need to mount {vault_dec} drive")
 
         if kp is None:
             raise ValueError("kp (KeePass instance) is required but was not provided")
@@ -89,6 +68,7 @@ def mount_encrypted_fs(
         for e in kp.entries:
             if title != e.title:
                 continue
+            print(vars(e))
             password = e.get_password()
             # Run mount command with password passed securely via stdin
             cmd = [
@@ -96,40 +76,20 @@ def mount_encrypted_fs(
                 f"{vault_enc}",
                 f"{vault_dec}",
             ]
-            logger.debug(f"Running mount command: {' '.join(cmd)}")
+            print(" ".join(cmd))
             p = subprocess.Popen(
                 cmd,
                 stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
             )
 
-            # Pass password directly via stdin and capture output
-            # Password bytes are cleared after use
-            try:
-                password_bytes = password.encode()
-                stdout, stderr = p.communicate(input=password_bytes, timeout=30)
-                
-                # Clear password bytes from memory (best effort)
-                password_bytes[:] = b'\x00' * len(password_bytes) if isinstance(password_bytes, bytearray) else None
-                
-                if p.returncode != 0:
-                    stderr_msg = stderr.decode(errors='replace').strip()
-                    raise RuntimeError(
-                        f"Mount failed with exit code {p.returncode}: {stderr_msg}"
-                    )
-                logger.info("Mount completed successfully")
-            except subprocess.TimeoutExpired:
-                p.kill()
-                raise RuntimeError(
-                    f"Mount command timed out after 30 seconds. "
-                    f"Check your password and encryption settings."
-                )
+            # Pass password directly
+            p.communicate(input=password.encode())
+            print("Done.")
             break
         else:
             raise ValueError(f"No entry found with title '{title}'")
     else:
-        logger.info(f"{vault_dec} already Mounted")
+        print(f"{vault_dec} already Mounted")
 
     if return_kp:
         if kp is None:
