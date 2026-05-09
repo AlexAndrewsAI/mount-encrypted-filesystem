@@ -1,8 +1,9 @@
 import logging
+import shlex
+import shutil
 import subprocess
 from pathlib import Path
 
-# Import keypass related stuff
 from keepass_wrapper.keepass import KeePass  # type: ignore[import-untyped]
 
 from mount_encrypted_filesystem.config import (
@@ -15,10 +16,14 @@ from mount_encrypted_filesystem.config import (
 logger = logging.getLogger(__name__)
 
 
+class AlreadyMountedError(RuntimeError):
+    """Raised when attempting to mount a vault that is already mounted."""
+
+
 def mount_encrypted_fs(
+    kp: KeePass,
     vault_enc: str | None = None,
     vault_dec: str | None = None,
-    kp: KeePass | None = None,
     enctype: str | None = None,
     title: str | None = None,
     return_kp: bool = False,
@@ -27,9 +32,9 @@ def mount_encrypted_fs(
     """Mount an encrypted filesystem using a password from KeePass.
 
     Args:
+        kp: KeePass instance for password retrieval (required)
         vault_enc: Path to encrypted vault directory
         vault_dec: Path to mount decrypted vault
-        kp: KeePass instance for password retrieval
         enctype: Encryption type (gocryptfs or cryfs). Auto-detected if not specified.
         title: Title to match in KeePass entries (defaults to enctype)
         return_kp: Whether to return the KeePass object
@@ -41,6 +46,7 @@ def mount_encrypted_fs(
     Raises:
         ValueError: If required parameters are missing or validation fails
         RuntimeError: If encryption type is not installed or auto-detection fails
+        AlreadyMountedError: If vault_dec is already a mount point
     """
     if config is not None:
         vault_enc = config.vault_enc
@@ -49,10 +55,11 @@ def mount_encrypted_fs(
         title = config.title
         return_kp = config.return_kp
 
+    if vault_enc is None or vault_dec is None:
+        raise ValueError("vault_enc and vault_dec are required")
+
     # Auto-detect enctype if not specified
     if enctype is None:
-        if vault_enc is None:
-            raise ValueError("Cannot auto-detect enctype: vault_enc is not specified")
         detected = detect_enctype(vault_enc)
         if detected is None:
             raise RuntimeError(
@@ -73,47 +80,40 @@ def mount_encrypted_fs(
         )
 
     # Validate that enctype is a valid system command
-    result = subprocess.run(["which", enctype], capture_output=True, check=False)
-    if result.returncode != 0:
-        raise RuntimeError(
-            f"Encryption type '{enctype}' is not installed or not found in PATH"
-        )
+    if shutil.which(enctype) is None:
+        raise RuntimeError(f"Encryption type '{enctype}' is not installed")
 
-    # check if gocrypt drive decrypted
-    if not Path(f"{vault_dec}/README.md").exists():
+    # check if vault is already mounted
+    if not Path(vault_dec).is_mount():
         logger.info(f"Need to mount {vault_dec} drive")
-
-        if kp is None:
-            raise ValueError("kp (KeePass instance) is required but was not provided")
 
         for e in kp.entries:
             if title != e.title:
                 continue
 
-            password = e.get_password()
             # Run mount command with password passed securely via stdin
             cmd = [
                 enctype,
-                f"{vault_enc}",
-                f"{vault_dec}",
+                vault_enc,
+                vault_dec,
             ]
-            logger.debug(" ".join(cmd))
+            logger.debug(" ".join(shlex.quote(c) for c in cmd))
             p = subprocess.Popen(
                 cmd,
                 stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
             )
 
             # Pass password directly via stdin and capture output
-            # Convert to bytearray for secure memory clearing
+            # NOTE: The KeePass library returns the password as a str, which in
+            # CPython is immutable and may be interned. True secure memory wiping
+            # is not possible here; this limitation is inherited from the wrapper.
             try:
-                password_bytes = bytearray(password.encode())
-                stdout, stderr = p.communicate(input=password_bytes, timeout=30)
-
-                # Clear password bytes from memory
-                password_bytes[:] = b'\x00' * len(password_bytes)
+                _, stderr = p.communicate(input=e.get_password().encode(), timeout=30)
 
                 if p.returncode != 0:
-                    stderr_msg = stderr.decode(errors='replace').strip()
+                    stderr_msg = stderr.decode(errors="replace").strip()
                     raise RuntimeError(
                         f"Mount failed with exit code {p.returncode}: {stderr_msg}"
                     )
@@ -128,11 +128,9 @@ def mount_encrypted_fs(
         else:
             raise ValueError(f"No entry found with title '{title}'")
     else:
-        logger.info(f"{vault_dec} already Mounted")
+        raise AlreadyMountedError(f"{vault_dec} is already mounted")
 
     if return_kp:
-        if kp is None:
-            raise ValueError("return_kp is True but kp is None")
         return kp
 
     return None

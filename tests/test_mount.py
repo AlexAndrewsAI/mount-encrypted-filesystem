@@ -3,7 +3,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from mount_encrypted_filesystem import Config, mount_encrypted_fs
+from mount_encrypted_filesystem import BatchConfig, Config, mount_encrypted_fs
+from mount_encrypted_filesystem.mount import AlreadyMountedError
 
 # Test filesystem paths
 TEST_DIR = Path(__file__).parent
@@ -54,12 +55,10 @@ def test_mount_cryfs(mock_cryfs_kp: MockKeePass, tmp_path: Path) -> None:
     mnt_dir = tmp_path / "cryfs_mnt"
     mnt_dir.mkdir()
 
-    # Mock the which command and subprocess calls
-    with patch("subprocess.run") as mock_run, \
-         patch("subprocess.Popen") as mock_popen, \
-         patch("time.sleep"):
+    with patch("shutil.which") as mock_which, \
+         patch("subprocess.Popen") as mock_popen:
 
-        mock_run.return_value = MagicMock(returncode=0)
+        mock_which.return_value = "/usr/bin/cryfs"
         mock_proc = MagicMock()
         mock_proc.stdout = MagicMock()
         mock_proc.communicate.return_value = (b"", b"")
@@ -75,9 +74,7 @@ def test_mount_cryfs(mock_cryfs_kp: MockKeePass, tmp_path: Path) -> None:
         )
 
         # Verify cryfs command was found
-        mock_run.assert_called_once_with(
-            ["which", "cryfs"], capture_output=True, check=False
-        )
+        mock_which.assert_called_once_with("cryfs")
 
         # Verify cryfs was called
         assert mock_popen.call_count == 1
@@ -88,11 +85,10 @@ def test_mount_gocryptfs(mock_gocryptfs_kp: MockKeePass, tmp_path: Path) -> None
     mnt_dir = tmp_path / "gocryptfs_mnt"
     mnt_dir.mkdir()
 
-    # Mock the which command and subprocess calls
-    with patch("subprocess.run") as mock_run, \
+    with patch("shutil.which") as mock_which, \
          patch("subprocess.Popen") as mock_popen:
 
-        mock_run.return_value = MagicMock(returncode=0)
+        mock_which.return_value = "/usr/bin/gocryptfs"
         mock_proc = MagicMock()
         mock_proc.stdout = MagicMock()
         mock_proc.communicate.return_value = (b"", b"")
@@ -108,46 +104,45 @@ def test_mount_gocryptfs(mock_gocryptfs_kp: MockKeePass, tmp_path: Path) -> None
         )
 
         # Verify gocryptfs command was found
-        mock_run.assert_called_once_with(
-            ["which", "gocryptfs"], capture_output=True, check=False
-        )
+        mock_which.assert_called_once_with("gocryptfs")
 
         # Verify gocryptfs was called
         assert mock_popen.call_count == 1
 
 
-def test_already_mounted_skips_mount(
+def test_already_mounted_raises_error(
     mock_cryfs_kp: MockKeePass, tmp_path: Path
 ) -> None:
-    """Test that mounting is skipped if already mounted (README.md exists)."""
+    """Test that mounting an already-mounted vault raises AlreadyMountedError."""
     mnt_dir = tmp_path / "already_mnt"
     mnt_dir.mkdir()
-    # Create README.md to simulate already mounted
-    (mnt_dir / "README.md").write_text("cryfs")
 
-    with patch("subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(returncode=0)
+    with patch("shutil.which") as mock_which, \
+         patch("os.path.ismount") as mock_ismount:
+        mock_which.return_value = "/usr/bin/cryfs"
+        mock_ismount.return_value = True
 
-        mount_encrypted_fs(
-            vault_enc=str(CRYFS_ENC),
-            vault_dec=str(mnt_dir),
-            kp=mock_cryfs_kp,
-            enctype="cryfs",
-            title="cryfs",
-        )
+        with pytest.raises(
+            AlreadyMountedError, match="is already mounted"
+        ):
+            mount_encrypted_fs(
+                vault_enc=str(CRYFS_ENC),
+                vault_dec=str(mnt_dir),
+                kp=mock_cryfs_kp,
+                enctype="cryfs",
+                title="cryfs",
+            )
 
-        # Only "which" should be called, not the mount commands
-        assert mock_run.call_count == 1
 
-
-def test_missing_enctype_raises_error() -> None:
-    with patch("mount_encrypted_filesystem.mount.subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(returncode=1)
+def test_missing_enctype_raises_error(mock_gocryptfs_kp: MockKeePass) -> None:
+    with patch("shutil.which") as mock_which:
+        mock_which.return_value = None
 
         with pytest.raises(
             RuntimeError, match="Encryption type 'gocryptfs' is not installed"
         ):
             mount_encrypted_fs(
+                kp=mock_gocryptfs_kp,
                 vault_enc="/fake/enc",
                 vault_dec="/fake/dec",
                 enctype="gocryptfs",
@@ -166,10 +161,10 @@ def test_mount_with_config(mock_gocryptfs_kp: MockKeePass, tmp_path: Path) -> No
         title="gocryptfs",
     )
 
-    with patch("subprocess.run") as mock_run, \
+    with patch("shutil.which") as mock_which, \
          patch("subprocess.Popen") as mock_popen:
 
-        mock_run.return_value = MagicMock(returncode=0)
+        mock_which.return_value = "/usr/bin/gocryptfs"
         mock_proc = MagicMock()
         mock_proc.stdout = MagicMock()
         mock_proc.communicate.return_value = (b"", b"")
@@ -179,9 +174,7 @@ def test_mount_with_config(mock_gocryptfs_kp: MockKeePass, tmp_path: Path) -> No
         mount_encrypted_fs(kp=mock_gocryptfs_kp, config=config)
 
         # Verify gocryptfs command was found
-        mock_run.assert_called_once_with(
-            ["which", "gocryptfs"], capture_output=True, check=False
-        )
+        mock_which.assert_called_once_with("gocryptfs")
 
 
 def test_default_title_from_enctype(mock_cryfs_kp: MockKeePass, tmp_path: Path) -> None:
@@ -189,10 +182,10 @@ def test_default_title_from_enctype(mock_cryfs_kp: MockKeePass, tmp_path: Path) 
     mnt_dir = tmp_path / "default_title_mnt"
     mnt_dir.mkdir()
 
-    with patch("subprocess.run") as mock_run, \
+    with patch("shutil.which") as mock_which, \
          patch("subprocess.Popen") as mock_popen:
 
-        mock_run.return_value = MagicMock(returncode=0)
+        mock_which.return_value = "/usr/bin/cryfs"
         mock_proc = MagicMock()
         mock_proc.stdout = MagicMock()
         mock_proc.communicate.return_value = (b"", b"")
@@ -208,9 +201,7 @@ def test_default_title_from_enctype(mock_cryfs_kp: MockKeePass, tmp_path: Path) 
         )
 
         # Should use "cryfs" as title and find the matching entry
-        mock_run.assert_called_once_with(
-            ["which", "cryfs"], capture_output=True, check=False
-        )
+        mock_which.assert_called_once_with("cryfs")
 
 
 def test_return_kp(mock_cryfs_kp: MockKeePass, tmp_path: Path) -> None:
@@ -218,10 +209,13 @@ def test_return_kp(mock_cryfs_kp: MockKeePass, tmp_path: Path) -> None:
     mnt_dir = tmp_path / "return_kp_mnt"
     mnt_dir.mkdir()
 
-    with patch("subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(returncode=0)
-        # Already mounted to avoid subprocess.Popen
-        (mnt_dir / "README.md").write_text("cryfs")
+    with patch("shutil.which") as mock_which, \
+         patch("subprocess.Popen") as mock_popen:
+        mock_which.return_value = "/usr/bin/cryfs"
+        mock_proc = MagicMock()
+        mock_proc.communicate.return_value = (b"", b"")
+        mock_proc.returncode = 0
+        mock_popen.return_value = mock_proc
 
         result = mount_encrypted_fs(
             vault_enc=str(CRYFS_ENC),
@@ -232,3 +226,61 @@ def test_return_kp(mock_cryfs_kp: MockKeePass, tmp_path: Path) -> None:
         )
 
         assert result is mock_cryfs_kp
+
+
+@pytest.fixture
+def mock_batch_kp() -> MockKeePass:
+    """Mock KeePass with entries for batch processing (custom and cryfs)."""
+    entries = [
+        MockKeePassEntry(title="custom", password="g1"),
+        MockKeePassEntry(title="cryfs", password="c1"),
+    ]
+    return MockKeePass(entries=entries)
+
+
+def test_batch_processing(mock_batch_kp: MockKeePass, tmp_path: Path) -> None:
+    """Test batch processing of multiple vaults using mock KeePass."""
+    # Create mount directories
+    gocrypt_mnt = tmp_path / "gocryptfs_dec"
+    cryfs_mnt = tmp_path / "cryfs_dec"
+    gocrypt_mnt.mkdir()
+    cryfs_mnt.mkdir()
+
+    # Create batch config similar to tests/batch.yml
+    batch_config = BatchConfig(
+        database_path="tests/enc.kdbx",
+        vaults=[
+            Config(
+                vault_enc=str(GOCRYPTFS_ENC),
+                vault_dec=str(gocrypt_mnt),
+                title="custom",
+            ),
+            Config(
+                vault_enc=str(CRYFS_ENC),
+                vault_dec=str(cryfs_mnt),
+            ),
+        ],
+    )
+
+    with patch("shutil.which") as mock_which, \
+         patch("subprocess.Popen") as mock_popen:
+
+        mock_which.return_value = "/usr/bin/gocryptfs"
+        mock_proc = MagicMock()
+        mock_proc.stdout = MagicMock()
+        mock_proc.communicate.return_value = (b"", b"")
+        mock_proc.returncode = 0
+        mock_popen.return_value = mock_proc
+
+        # Process batch similar to CLI batch command
+        for vault_config in batch_config.vaults:
+            mount_encrypted_fs(
+                vault_enc=vault_config.vault_enc,
+                vault_dec=vault_config.vault_dec,
+                kp=mock_batch_kp,
+                enctype=vault_config.enctype,
+                title=vault_config.title,
+            )
+
+        # Verify both vaults were mounted (2 Popen calls for 2 vaults)
+        assert mock_popen.call_count == 2

@@ -15,7 +15,7 @@ Supports multiple encryption types including **gocryptfs** and **cryfs** with au
 
 ### Note
 
-- Identifies if already mounted by just checking for `README.md` in root decrypted folder
+- Identifies if already mounted by checking whether the decrypted path is a mount point
 
 ## Installation
 
@@ -120,15 +120,24 @@ uv run mypy mount_encrypted_filesystem
 ```
 mount-encrypted-filesystem/
 ├── .gitignore
+├── LICENSE
 ├── pyproject.toml
 ├── README.md
-├── mount_encrypted_filesystem/     
+├── uv.lock
+├── mount_encrypted_filesystem/
 │   ├── __init__.py
 │   ├── cli.py
+│   ├── config.py
 │   └── mount.py
 └── tests/
     ├── __init__.py
-    └── test_mount.py
+    ├── batch.yml
+    ├── enc.kdbx
+    ├── test_mount.py
+    └── filesystems/
+        ├── cryfs/
+        ├── cryfs_dec/
+        └── gocryptfs/
 ```
 
 ## Features
