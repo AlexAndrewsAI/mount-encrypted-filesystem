@@ -5,7 +5,7 @@ import typer
 import yaml
 from keepass_wrapper.keepass import KeePass  # type: ignore[import-untyped]
 
-from mount_encrypted_filesystem.config import BatchConfig
+from mount_encrypted_filesystem.config import Config
 from mount_encrypted_filesystem.mount import mount_encrypted_fs
 
 app = typer.Typer(help="Mount encrypted filesystems using passwords from KeePass")
@@ -56,32 +56,43 @@ def batch(
     with open(batch_file) as f:
         config_data = yaml.safe_load(f)
 
-    # Validate configuration using Pydantic
-    config = BatchConfig(**config_data)
-
-    database_path = Path(config.database_path)
+    # Extract database path from config
+    database_path = Path(config_data["database_path"])
+    vaults_data = config_data["vaults"]
 
     # Initialize KeePass with database path
     kp = KeePass(database_path=str(database_path))
 
     # Mount each vault in the batch
-    for vault_config in config.vaults:
+    mounted_count = 0
+    for vault_data in vaults_data:
+        try:
+            vault_config = Config(**vault_data)
+        except ValueError as e:
+            typer.echo(f"Skipping {vault_data.get('vault_enc', 'unknown')}: {e}")
+            continue
+
         vault_enc = vault_config.vault_enc
         vault_dec = vault_config.vault_dec
         title = vault_config.title
         enctype = vault_config.enctype
 
-        typer.echo(f"Mounting {vault_enc} -> {vault_dec}...")
-        mount_encrypted_fs(
-            vault_enc=vault_enc,
-            vault_dec=vault_dec,
-            kp=kp,
-            enctype=enctype,
-            title=title,
-        )
-        typer.echo(f"Successfully mounted {vault_enc}")
+        try:
+            typer.echo(f"Mounting {vault_enc} -> {vault_dec}...")
+            mount_encrypted_fs(
+                vault_enc=vault_enc,
+                vault_dec=vault_dec,
+                kp=kp,
+                enctype=enctype,
+                title=title,
+            )
+            typer.echo(f"Successfully mounted {vault_enc}")
+            mounted_count += 1
+        except ValueError as e:
+            typer.echo(f"Skipping {vault_enc}: {e}")
+            continue
 
-    typer.echo(f"Batch mount completed. {len(config.vaults)} vault(s) mounted.")
+    typer.echo(f"Batch mount completed. {mounted_count} vault(s) mounted.")
 
 
 def main() -> None:

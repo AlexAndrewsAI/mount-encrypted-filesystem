@@ -41,6 +41,14 @@ class Config(BaseModel):
         default=False, description="Whether to return the KeePass object"
     )
 
+    @field_validator("vault_dec")
+    @classmethod
+    def validate_vault_dec(cls, v: str) -> str:
+        vault_path = Path(v)
+        if vault_path.exists() and any(vault_path.iterdir()):
+            raise ValueError(f"vault_dec directory '{v}' must be empty")
+        return v
+
     @field_validator("enctype")
     @classmethod
     def validate_enctype(cls, v: str | None) -> str | None:
