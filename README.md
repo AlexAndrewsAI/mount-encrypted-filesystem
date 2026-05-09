@@ -73,6 +73,28 @@ mount-encfs tests/filesystems/gocryptfs tests/filesystems/mnt \
   --title "Work Vault"
 ```
 
+### Batch Mount Multiple Vaults
+
+Use a YAML configuration file to mount multiple vaults with a single command:
+
+```bash
+mount-encfs batch tests/batch.yml
+```
+
+**Example `batch.yml`:**
+
+```yaml
+database_path: tests/enc.kdbx
+vaults:
+  - vault_enc: tests/filesystems/gocryptfs
+    vault_dec: tests/filesystems/gocryptfs_dec
+    title: custom
+  - vault_enc: tests/filesystems/cryfs
+    vault_dec: tests/filesystems/cryfs_dec
+```
+
+Each vault entry supports the same options as the single-mount command: `vault_enc`, `vault_dec`, `enctype`, and `title`.
+
 ### Get Help
 
 ```bash
