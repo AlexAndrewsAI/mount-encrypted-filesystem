@@ -4,17 +4,18 @@ from typing import Optional
 import typer
 import yaml
 from keepass_wrapper.keepass import KeePass  # type: ignore[import-untyped]
+from pydantic import ValidationError
 
 from mount_encrypted_filesystem.config import Config
-from mount_encrypted_filesystem.mount import mount_encrypted_fs
+from mount_encrypted_filesystem.mount import AlreadyMountedError, mount_encrypted_fs
 
 app = typer.Typer(help="Mount encrypted filesystems using passwords from KeePass")
 
 
 @app.command()
 def mount(
-    vault_enc: str = typer.Argument(..., help="Path to encrypted vault"),
-    vault_dec: str = typer.Argument(..., help="Path to mount decrypted vault"),
+    vault_enc: Path = typer.Argument(..., help="Path to encrypted vault"),
+    vault_dec: Path = typer.Argument(..., help="Path to mount decrypted vault"),
     database_path: Path = typer.Option(
         ..., "--database", "-d", help="Path to KeePass database file"
     ),
@@ -36,13 +37,17 @@ def mount(
     kp = KeePass(database_path=str(database_path))
 
     # Mount the encrypted filesystem
-    mount_encrypted_fs(
-        vault_enc=vault_enc,
-        vault_dec=vault_dec,
-        kp=kp,
-        enctype=enctype,
-        title=title,
-    )
+    try:
+        mount_encrypted_fs(
+            vault_enc=str(vault_enc),
+            vault_dec=str(vault_dec),
+            kp=kp,
+            enctype=enctype,
+            title=title,
+        )
+    except AlreadyMountedError as e:
+        typer.echo(f"Error: {e}")
+        raise typer.Exit(1)
 
     typer.echo("Mount operation completed.")
 
@@ -53,7 +58,7 @@ def batch(
 ) -> None:
     """Mount multiple encrypted filesystems from a batch configuration file."""
     # Load and parse the batch file
-    with open(batch_file) as f:
+    with open(batch_file, encoding="utf-8") as f:
         config_data = yaml.safe_load(f)
 
     # Extract database path from config
@@ -68,7 +73,7 @@ def batch(
     for vault_data in vaults_data:
         try:
             vault_config = Config(**vault_data)
-        except ValueError as e:
+        except ValidationError as e:
             typer.echo(f"Skipping {vault_data.get('vault_enc', 'unknown')}: {e}")
             continue
 
@@ -88,7 +93,7 @@ def batch(
             )
             typer.echo(f"Successfully mounted {vault_enc}")
             mounted_count += 1
-        except ValueError as e:
+        except (ValueError, AlreadyMountedError) as e:
             typer.echo(f"Skipping {vault_enc}: {e}")
             continue
 

@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from typing import List
 
@@ -45,7 +46,11 @@ class Config(BaseModel):
     @classmethod
     def validate_vault_dec(cls, v: str) -> str:
         vault_path = Path(v)
-        if vault_path.exists() and any(vault_path.iterdir()):
+        if (
+            vault_path.exists()
+            and any(vault_path.iterdir())
+            and not os.path.ismount(v)
+        ):
             raise ValueError(f"vault_dec directory '{v}' must be empty")
         return v
 
