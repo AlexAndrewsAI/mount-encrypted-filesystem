@@ -83,7 +83,6 @@ def mount_encrypted_fs(
     if shutil.which(enctype) is None:
         raise RuntimeError(f"Encryption type '{enctype}' is not installed")
 
-
     # check if vault is already mounted
     if not Path(vault_dec).is_mount():
         logger.info(f"Need to mount {vault_dec} drive")
@@ -111,12 +110,10 @@ def mount_encrypted_fs(
             # CPython is immutable and may be interned. True secure memory wiping
             # is not possible here; this limitation is inherited from the wrapper.
             try:
-                _, stderr = p.communicate(
-                    input=e.get_password().encode(), timeout=30
-                )
+                _, stderr = p.communicate(input=e.get_password().encode(), timeout=30)
 
                 if p.returncode != 0:
-                    stderr_msg = stderr.decode(errors='replace').strip()
+                    stderr_msg = stderr.decode(errors="replace").strip()
                     raise RuntimeError(
                         f"Mount failed with exit code {p.returncode}: {stderr_msg}"
                     )

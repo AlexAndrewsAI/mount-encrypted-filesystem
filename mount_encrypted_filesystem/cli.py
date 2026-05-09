@@ -73,7 +73,6 @@ def batch(
     # Mount each vault in the batch
     mounted_count = 0
     for vault_config in batch_config.vaults:
-
         vault_enc = vault_config.vault_enc
         vault_dec = vault_config.vault_dec
         title = vault_config.title
