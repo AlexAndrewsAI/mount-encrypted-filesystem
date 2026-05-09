@@ -86,6 +86,7 @@ def mount_encrypted_fs(
         for e in kp.entries:
             if title != e.title:
                 continue
+            print(vars(e))
             password = e.get_password()
             # Run mount command with password passed securely via stdin
             cmd = [
@@ -97,8 +98,6 @@ def mount_encrypted_fs(
             p = subprocess.Popen(
                 cmd,
                 stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
             )
 
             # Pass password directly via stdin and capture output
