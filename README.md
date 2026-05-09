@@ -13,6 +13,10 @@ This is a utility package that simplifies mounting encrypted filesystems by auto
 
 Supports multiple encryption types including **gocryptfs** and **cryfs** with automatic detection.
 
+### Note
+
+- Identifies if already mounted by just checking for `README.md` in root decrypted folder
+
 ## Installation
 
 ### Prerequisites
