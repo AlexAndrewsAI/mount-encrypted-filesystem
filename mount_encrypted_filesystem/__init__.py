@@ -1,6 +1,7 @@
 from mount_encrypted_filesystem.config import (
     ENCTYPE_PATTERNS,
     SUPPORTED_ENCTYPES,
+    BatchConfig,
     Config,
     detect_enctype,
 )
@@ -10,6 +11,7 @@ __version__ = "0.1.0"
 __all__ = [
     "mount_encrypted_fs",
     "Config",
+    "BatchConfig",
     "detect_enctype",
     "SUPPORTED_ENCTYPES",
     "ENCTYPE_PATTERNS",

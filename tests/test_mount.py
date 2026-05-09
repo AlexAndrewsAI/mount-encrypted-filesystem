@@ -3,8 +3,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from mount_encrypted_filesystem import Config, mount_encrypted_fs
-from mount_encrypted_filesystem.config import BatchConfig
+from mount_encrypted_filesystem import BatchConfig, Config, mount_encrypted_fs
+from mount_encrypted_filesystem.mount import AlreadyMountedError
 
 # Test filesystem paths
 TEST_DIR = Path(__file__).parent
@@ -123,7 +123,7 @@ def test_already_mounted_raises_error(
         mock_ismount.return_value = True
 
         with pytest.raises(
-            RuntimeError, match="is already mounted"
+            AlreadyMountedError, match="is already mounted"
         ):
             mount_encrypted_fs(
                 vault_enc=str(CRYFS_ENC),

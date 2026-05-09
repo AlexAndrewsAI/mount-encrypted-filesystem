@@ -1,7 +1,8 @@
 import logging
-import os
+import shlex
 import shutil
 import subprocess
+from pathlib import Path
 
 from keepass_wrapper.keepass import KeePass  # type: ignore[import-untyped]
 
@@ -59,8 +60,6 @@ def mount_encrypted_fs(
 
     # Auto-detect enctype if not specified
     if enctype is None:
-        if vault_enc is None:
-            raise ValueError("Cannot auto-detect enctype: vault_enc is not specified")
         detected = detect_enctype(vault_enc)
         if detected is None:
             raise RuntimeError(
@@ -86,7 +85,7 @@ def mount_encrypted_fs(
 
 
     # check if vault is already mounted
-    if not os.path.ismount(vault_dec):
+    if not Path(vault_dec).is_mount():
         logger.info(f"Need to mount {vault_dec} drive")
 
         for e in kp.entries:
@@ -99,10 +98,12 @@ def mount_encrypted_fs(
                 vault_enc,
                 vault_dec,
             ]
-            logger.debug(" ".join(cmd))
+            logger.debug(" ".join(shlex.quote(c) for c in cmd))
             p = subprocess.Popen(
                 cmd,
                 stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
             )
 
             # Pass password directly via stdin and capture output

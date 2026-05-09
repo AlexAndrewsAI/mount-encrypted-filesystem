@@ -6,7 +6,7 @@ import yaml
 from keepass_wrapper.keepass import KeePass  # type: ignore[import-untyped]
 from pydantic import ValidationError
 
-from mount_encrypted_filesystem.config import Config
+from mount_encrypted_filesystem.config import BatchConfig
 from mount_encrypted_filesystem.mount import AlreadyMountedError, mount_encrypted_fs
 
 app = typer.Typer(help="Mount encrypted filesystems using passwords from KeePass")
@@ -59,23 +59,20 @@ def batch(
     """Mount multiple encrypted filesystems from a batch configuration file."""
     # Load and parse the batch file
     with open(batch_file, encoding="utf-8") as f:
-        config_data = yaml.safe_load(f)
+        raw_data = yaml.safe_load(f)
 
-    # Extract database path from config
-    database_path = Path(config_data["database_path"])
-    vaults_data = config_data["vaults"]
+    try:
+        batch_config = BatchConfig(**raw_data)
+    except ValidationError as e:
+        typer.echo(f"Error: Invalid batch configuration: {e}")
+        raise typer.Exit(1)
 
     # Initialize KeePass with database path
-    kp = KeePass(database_path=str(database_path))
+    kp = KeePass(database_path=batch_config.database_path)
 
     # Mount each vault in the batch
     mounted_count = 0
-    for vault_data in vaults_data:
-        try:
-            vault_config = Config(**vault_data)
-        except ValidationError as e:
-            typer.echo(f"Skipping {vault_data.get('vault_enc', 'unknown')}: {e}")
-            continue
+    for vault_config in batch_config.vaults:
 
         vault_enc = vault_config.vault_enc
         vault_dec = vault_config.vault_dec

@@ -15,7 +15,7 @@ Supports multiple encryption types including **gocryptfs** and **cryfs** with au
 
 ### Note
 
-- Identifies if already mounted by just checking for `README.md` in root decrypted folder
+- Identifies if already mounted by checking whether the decrypted path is a mount point
 
 ## Installation
 
