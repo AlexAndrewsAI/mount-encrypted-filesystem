@@ -42,7 +42,7 @@ def mount(
         title=title,
     )
 
-    typer.echo("Mount operation completed. 2026-05-08_15-40-23")
+    typer.echo("Mount operation completed.")
 
 
 def main() -> None:
