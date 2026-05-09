@@ -41,7 +41,7 @@ uv sync
 ### Mount an Encrypted Filesystem
 
 ```bash
-mount-encfs tests/gocryptfs tests/mnt \
+mount-encfs tests/filesystems/gocryptfs tests/filesystems/mnt \
   --database tests/enc.kdbx
 ```
 
@@ -56,15 +56,15 @@ You'll be prompted for your KeePass password.
 
 ```bash
 # Auto-detect encryption type, prompt for password
-mount-encfs tests/gocryptfs tests/mnt --database tests/enc.kdbx
+mount-encfs tests/filesystems/gocryptfs tests/filesystems/mnt --database tests/enc.kdbx
 
 # Specify encryption type and password
-mount-encfs tests/gocryptfs tests/mnt \
+mount-encfs tests/filesystems/gocryptfs tests/filesystems/mnt \
   --database tests/enc.kdbx \
   --enctype gocryptfs
 
 # Match specific KeePass entry by title
-mount-encfs tests/gocryptfs tests/mnt \
+mount-encfs tests/filesystems/gocryptfs tests/filesystems/mnt \
   --database tests/enc.kdbx \
   --title "Work Vault"
 ```
