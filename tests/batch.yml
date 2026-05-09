@@ -1,0 +1,7 @@
+database_path: tests/enc.kdbx
+vaults:
+  - vault_enc: tests/filesystems/gocryptfs
+    vault_dec: tests/filesystems/gocryptfs_dec
+    title: custom
+  - vault_enc: tests/filesystems/cryfs
+    vault_dec: tests/filesystems/cryfs_dec

@@ -32,6 +32,7 @@ dev = [
     "ruff",
     "mypy",
     "uv",
+    "types-PyYAML",
 ]
 
 [project.urls]
@@ -44,6 +45,7 @@ dev = [
     "pytest>=7.0",
     "ruff",
     "mypy",
+    "types-PyYAML",
 ]
 
 

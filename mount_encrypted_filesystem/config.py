@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import List
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -53,3 +54,12 @@ class Config(BaseModel):
         return v
 
     model_config = {"title": "Mount Encrypted Filesystem Config"}
+
+
+class BatchConfig(BaseModel):
+    """Configuration for batch mounting multiple vaults."""
+
+    database_path: str = Field(description="Path to KeePass database file")
+    vaults: List[Config] = Field(description="List of vault configurations")
+
+    model_config = {"title": "Batch Mount Configuration"}
