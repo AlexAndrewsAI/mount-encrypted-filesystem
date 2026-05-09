@@ -1,3 +1,4 @@
+import logging
 import subprocess
 from pathlib import Path
 
@@ -10,6 +11,8 @@ from mount_encrypted_filesystem.config import (
     Config,
     detect_enctype,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def mount_encrypted_fs(
@@ -57,7 +60,7 @@ def mount_encrypted_fs(
                 f"Expected one of: {', '.join(ENCTYPE_PATTERNS.values())}"
             )
         enctype = detected
-        print(f"Auto-detected encryption type: {enctype}")
+        logger.info(f"Auto-detected encryption type: {enctype}")
 
     if title is None:
         title = enctype
@@ -78,7 +81,7 @@ def mount_encrypted_fs(
 
     # check if gocrypt drive decrypted
     if not Path(f"{vault_dec}/README.md").exists():
-        print(f"Need to mount {vault_dec} drive")
+        logger.info(f"Need to mount {vault_dec} drive")
 
         if kp is None:
             raise ValueError("kp (KeePass instance) is required but was not provided")
@@ -93,7 +96,7 @@ def mount_encrypted_fs(
                 f"{vault_enc}",
                 f"{vault_dec}",
             ]
-            print(" ".join(cmd))
+            logger.debug(f"Running mount command: {' '.join(cmd)}")
             p = subprocess.Popen(
                 cmd,
                 stdin=subprocess.PIPE,
@@ -115,7 +118,7 @@ def mount_encrypted_fs(
                     raise RuntimeError(
                         f"Mount failed with exit code {p.returncode}: {stderr_msg}"
                     )
-                print("Done.")
+                logger.info("Mount completed successfully")
             except subprocess.TimeoutExpired:
                 p.kill()
                 raise RuntimeError(
@@ -126,7 +129,7 @@ def mount_encrypted_fs(
         else:
             raise ValueError(f"No entry found with title '{title}'")
     else:
-        print(f"{vault_dec} already Mounted")
+        logger.info(f"{vault_dec} already Mounted")
 
     if return_kp:
         if kp is None:
