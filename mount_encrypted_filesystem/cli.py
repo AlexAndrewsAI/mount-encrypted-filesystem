@@ -1,13 +1,23 @@
+"""Command-line interface for mounting encrypted filesystems.
+
+Provides typer-based CLI commands for mounting individual vaults and
+batch processing multiple vaults from YAML configuration.
+"""
+
+import logging
 from pathlib import Path
-from typing import Optional
 
 import typer
-import yaml
 from keepass_wrapper.keepass import KeePass  # type: ignore[import-untyped]
-from pydantic import ValidationError
 
-from mount_encrypted_filesystem.config import BatchConfig
+from mount_encrypted_filesystem.batch import BatchMountError, batch_mount
 from mount_encrypted_filesystem.mount import AlreadyMountedError, mount_encrypted_fs
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(levelname)s: %(message)s",
+)
 
 app = typer.Typer(help="Mount encrypted filesystems using passwords from KeePass")
 
@@ -19,17 +29,22 @@ def mount(
     database_path: Path = typer.Option(
         ..., "--database", "-d", help="Path to KeePass database file"
     ),
-    enctype: Optional[str] = typer.Option(
+    enctype: str | None = typer.Option(
         None,
         "--enctype",
         "-e",
         help="Encryption type (gocryptfs or cryfs). Auto-detected if not specified.",
     ),
-    title: Optional[str] = typer.Option(
+    title: str | None = typer.Option(
         None,
         "--title",
         "-t",
         help="Title to match in KeePass entries (defaults to enctype)",
+    ),
+    timeout: int = typer.Option(
+        30,
+        "--timeout",
+        help="Timeout in seconds for mount command",
     ),
 ) -> None:
     """Mount an encrypted filesystem using a password from KeePass."""
@@ -44,6 +59,7 @@ def mount(
             kp=kp,
             enctype=enctype,
             title=title,
+            timeout=timeout,
         )
     except AlreadyMountedError as e:
         typer.echo(f"Error: {e}")
@@ -57,46 +73,17 @@ def batch(
     batch_file: Path = typer.Argument(..., help="Path to batch YAML file"),
 ) -> None:
     """Mount multiple encrypted filesystems from a batch configuration file."""
-    # Load and parse the batch file
-    with open(batch_file, encoding="utf-8") as f:
-        raw_data = yaml.safe_load(f)
-
     try:
-        batch_config = BatchConfig(**raw_data)
-    except ValidationError as e:
-        typer.echo(f"Error: Invalid batch configuration: {e}")
+        batch_mount(str(batch_file))
+    except BatchMountError as e:
+        typer.echo(f"Error: {e}")
         raise typer.Exit(1)
 
-    # Initialize KeePass with database path
-    kp = KeePass(database_path=batch_config.database_path)
-
-    # Mount each vault in the batch
-    mounted_count = 0
-    for vault_config in batch_config.vaults:
-        vault_enc = vault_config.vault_enc
-        vault_dec = vault_config.vault_dec
-        title = vault_config.title
-        enctype = vault_config.enctype
-
-        try:
-            typer.echo(f"Mounting {vault_enc} -> {vault_dec}...")
-            mount_encrypted_fs(
-                vault_enc=vault_enc,
-                vault_dec=vault_dec,
-                kp=kp,
-                enctype=enctype,
-                title=title,
-            )
-            typer.echo(f"Successfully mounted {vault_enc}")
-            mounted_count += 1
-        except (ValueError, AlreadyMountedError) as e:
-            typer.echo(f"Skipping {vault_enc}: {e}")
-            continue
-
-    typer.echo(f"Batch mount completed. {mounted_count} vault(s) mounted.")
+    typer.echo("Batch mount completed.")
 
 
 def main() -> None:
+    """Entry point for the CLI application."""
     app()
 
 
