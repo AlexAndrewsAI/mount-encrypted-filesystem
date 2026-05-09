@@ -1,6 +1,11 @@
+"""Batch mounting functionality for multiple encrypted vaults.
+
+Provides utilities for mounting multiple encrypted filesystems from
+a YAML configuration file using passwords from KeePass.
+"""
+
 import logging
 from pathlib import Path
-from typing import Optional
 
 import yaml  # type: ignore[import-untyped]
 from keepass_wrapper.keepass import KeePass  # type: ignore[import-untyped]
@@ -18,7 +23,7 @@ class BatchMountError(Exception):
 
 def batch_mount(
     batch_file: str | Path,
-    kp: Optional[KeePass] = None,
+    kp: KeePass | None = None,
     return_kp: bool = False,
 ) -> KeePass | None:
     """Mount multiple encrypted filesystems from a batch configuration file.
@@ -34,6 +39,7 @@ def batch_mount(
 
     Raises:
         BatchMountError: If the configuration is invalid or no vaults are specified.
+
     """
     batch_path = Path(batch_file)
     with open(batch_path, encoding="utf-8") as f:

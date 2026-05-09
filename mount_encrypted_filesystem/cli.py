@@ -1,11 +1,23 @@
+"""Command-line interface for mounting encrypted filesystems.
+
+Provides typer-based CLI commands for mounting individual vaults and
+batch processing multiple vaults from YAML configuration.
+"""
+
+import logging
 from pathlib import Path
-from typing import Optional
 
 import typer
 from keepass_wrapper.keepass import KeePass  # type: ignore[import-untyped]
 
 from mount_encrypted_filesystem.batch import BatchMountError, batch_mount
 from mount_encrypted_filesystem.mount import AlreadyMountedError, mount_encrypted_fs
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(levelname)s: %(message)s",
+)
 
 app = typer.Typer(help="Mount encrypted filesystems using passwords from KeePass")
 
@@ -17,17 +29,22 @@ def mount(
     database_path: Path = typer.Option(
         ..., "--database", "-d", help="Path to KeePass database file"
     ),
-    enctype: Optional[str] = typer.Option(
+    enctype: str | None = typer.Option(
         None,
         "--enctype",
         "-e",
         help="Encryption type (gocryptfs or cryfs). Auto-detected if not specified.",
     ),
-    title: Optional[str] = typer.Option(
+    title: str | None = typer.Option(
         None,
         "--title",
         "-t",
         help="Title to match in KeePass entries (defaults to enctype)",
+    ),
+    timeout: int = typer.Option(
+        30,
+        "--timeout",
+        help="Timeout in seconds for mount command",
     ),
 ) -> None:
     """Mount an encrypted filesystem using a password from KeePass."""
@@ -42,6 +59,7 @@ def mount(
             kp=kp,
             enctype=enctype,
             title=title,
+            timeout=timeout,
         )
     except AlreadyMountedError as e:
         typer.echo(f"Error: {e}")
@@ -65,6 +83,7 @@ def batch(
 
 
 def main() -> None:
+    """Entry point for the CLI application."""
     app()
 
 

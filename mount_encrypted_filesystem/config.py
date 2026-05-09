@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import List
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -25,6 +24,18 @@ def detect_enctype(vault_enc: str) -> str | None:
 
 
 class Config(BaseModel):
+    """Configuration for mounting a single encrypted vault.
+
+    Attributes:
+        vault_enc: Path to encrypted vault directory.
+        vault_dec: Path to mount decrypted vault.
+        enctype: Encryption type (gocryptfs or cryfs). Auto-detected if not specified.
+        title: Title to match in KeePass entries (defaults to enctype).
+        return_kp: Whether to return the KeePass object.
+        timeout: Timeout in seconds for mount command.
+
+    """
+
     vault_enc: str = Field(description="Path to encrypted vault")
     vault_dec: str = Field(description="Path to mount decrypted vault")
     enctype: str | None = Field(
@@ -40,10 +51,25 @@ class Config(BaseModel):
     return_kp: bool = Field(
         default=False, description="Whether to return the KeePass object"
     )
+    timeout: int = Field(
+        default=30, description="Timeout in seconds for mount command"
+    )
 
     @field_validator("vault_dec")
     @classmethod
     def validate_vault_dec(cls, v: str) -> str:
+        """Validate that vault_dec directory is empty or a mount point.
+
+        Args:
+            v: Path to the decrypted vault mount directory.
+
+        Returns:
+            The validated path string.
+
+        Raises:
+            ValueError: If the directory exists, is not empty, and is not a mount point.
+
+        """
         vault_path = Path(v)
         if (
             vault_path.exists()
@@ -56,6 +82,18 @@ class Config(BaseModel):
     @field_validator("enctype")
     @classmethod
     def validate_enctype(cls, v: str | None) -> str | None:
+        """Validate that enctype is a supported encryption type.
+
+        Args:
+            v: Encryption type string or None.
+
+        Returns:
+            The validated encryption type string or None.
+
+        Raises:
+            ValueError: If enctype is not in SUPPORTED_ENCTYPES.
+
+        """
         if v is None:
             return None
         if v not in SUPPORTED_ENCTYPES:
@@ -72,6 +110,6 @@ class BatchConfig(BaseModel):
     """Configuration for batch mounting multiple vaults."""
 
     database_path: str = Field(description="Path to KeePass database file")
-    vaults: List[Config] = Field(description="List of vault configurations")
+    vaults: list[Config] = Field(description="List of vault configurations")
 
     model_config = {"title": "Batch Mount Configuration"}

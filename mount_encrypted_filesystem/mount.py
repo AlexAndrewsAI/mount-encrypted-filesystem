@@ -1,3 +1,10 @@
+"""Core functionality for mounting encrypted filesystems.
+
+Provides the main mount_encrypted_fs function that handles mounting
+encrypted vaults using passwords from KeePass, with support for
+gocryptfs and cryfs encryption types.
+"""
+
 import logging
 import shlex
 import shutil
@@ -27,6 +34,7 @@ def mount_encrypted_fs(
     enctype: str | None = None,
     title: str | None = None,
     return_kp: bool = False,
+    timeout: int = 30,
     config: Config | None = None,
 ) -> KeePass | None:
     """Mount an encrypted filesystem using a password from KeePass.
@@ -38,6 +46,7 @@ def mount_encrypted_fs(
         enctype: Encryption type (gocryptfs or cryfs). Auto-detected if not specified.
         title: Title to match in KeePass entries (defaults to enctype)
         return_kp: Whether to return the KeePass object
+        timeout: Timeout in seconds for mount command
         config: Config object (alternative to individual parameters)
 
     Returns:
@@ -47,6 +56,7 @@ def mount_encrypted_fs(
         ValueError: If required parameters are missing or validation fails
         RuntimeError: If encryption type is not installed or auto-detection fails
         AlreadyMountedError: If vault_dec is already a mount point
+
     """
     if config is not None:
         vault_enc = config.vault_enc
@@ -54,6 +64,7 @@ def mount_encrypted_fs(
         enctype = config.enctype
         title = config.title
         return_kp = config.return_kp
+        timeout = config.timeout
 
     if vault_enc is None or vault_dec is None:
         raise ValueError("vault_enc and vault_dec are required")
@@ -110,7 +121,9 @@ def mount_encrypted_fs(
             # CPython is immutable and may be interned. True secure memory wiping
             # is not possible here; this limitation is inherited from the wrapper.
             try:
-                _, stderr = p.communicate(input=e.get_password().encode(), timeout=30)
+                _, stderr = p.communicate(
+                    input=e.get_password().encode(), timeout=timeout
+                )
 
                 if p.returncode != 0:
                     stderr_msg = stderr.decode(errors="replace").strip()
@@ -121,7 +134,7 @@ def mount_encrypted_fs(
             except subprocess.TimeoutExpired:
                 p.kill()
                 raise RuntimeError(
-                    "Mount command timed out after 30 seconds. "
+                    f"Mount command timed out after {timeout} seconds. "
                     "Check your password and encryption settings."
                 )
             break
