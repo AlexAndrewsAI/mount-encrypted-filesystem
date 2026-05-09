@@ -1,6 +1,4 @@
-import tempfile
 from pathlib import Path
-from typing import Generator
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -49,14 +47,6 @@ def mock_gocryptfs_kp() -> MockKeePass:
     """Mock KeePass with gocryptfs entry (password: g1)."""
     entry = MockKeePassEntry(title="gocryptfs", password="g1")
     return MockKeePass(entries=[entry])
-
-
-@pytest.fixture
-def temp_mnt_dir() -> Generator[Path, None, None]:
-    """Create a temporary mount directory."""
-    mnt_dir = tempfile.mkdtemp(dir=MNT_BASE)
-    yield Path(mnt_dir)
-    # Cleanup: unmount if needed
 
 
 def test_mount_cryfs(mock_cryfs_kp: MockKeePass, tmp_path: Path) -> None:
@@ -151,8 +141,7 @@ def test_already_mounted_skips_mount(
 
 
 def test_missing_enctype_raises_error() -> None:
-    """Test that missing encryption binary raises RuntimeError."""
-    with patch("subprocess.run") as mock_run:
+    with patch("mount_encrypted_filesystem.mount.subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(returncode=1)
 
         with pytest.raises(
