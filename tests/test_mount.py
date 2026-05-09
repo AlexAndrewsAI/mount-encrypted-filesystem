@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from mount_encrypted_filesystem import Config, mount_encrypted_fs
+from mount_encrypted_filesystem.config import BatchConfig
 
 # Test filesystem paths
 TEST_DIR = Path(__file__).parent
@@ -232,3 +233,61 @@ def test_return_kp(mock_cryfs_kp: MockKeePass, tmp_path: Path) -> None:
         )
 
         assert result is mock_cryfs_kp
+
+
+@pytest.fixture
+def mock_batch_kp() -> MockKeePass:
+    """Mock KeePass with entries for batch processing (custom and cryfs)."""
+    entries = [
+        MockKeePassEntry(title="custom", password="g1"),
+        MockKeePassEntry(title="cryfs", password="c1"),
+    ]
+    return MockKeePass(entries=entries)
+
+
+def test_batch_processing(mock_batch_kp: MockKeePass, tmp_path: Path) -> None:
+    """Test batch processing of multiple vaults using mock KeePass."""
+    # Create mount directories
+    gocrypt_mnt = tmp_path / "gocryptfs_dec"
+    cryfs_mnt = tmp_path / "cryfs_dec"
+    gocrypt_mnt.mkdir()
+    cryfs_mnt.mkdir()
+
+    # Create batch config similar to tests/batch.yml
+    batch_config = BatchConfig(
+        database_path="tests/enc.kdbx",
+        vaults=[
+            Config(
+                vault_enc=str(GOCRYPTFS_ENC),
+                vault_dec=str(gocrypt_mnt),
+                title="custom",
+            ),
+            Config(
+                vault_enc=str(CRYFS_ENC),
+                vault_dec=str(cryfs_mnt),
+            ),
+        ],
+    )
+
+    with patch("subprocess.run") as mock_run, \
+         patch("subprocess.Popen") as mock_popen:
+
+        mock_run.return_value = MagicMock(returncode=0)
+        mock_proc = MagicMock()
+        mock_proc.stdout = MagicMock()
+        mock_proc.communicate.return_value = (b"", b"")
+        mock_proc.returncode = 0
+        mock_popen.return_value = mock_proc
+
+        # Process batch similar to CLI batch command
+        for vault_config in batch_config.vaults:
+            mount_encrypted_fs(
+                vault_enc=vault_config.vault_enc,
+                vault_dec=vault_config.vault_dec,
+                kp=mock_batch_kp,
+                enctype=vault_config.enctype,
+                title=vault_config.title,
+            )
+
+        # Verify both vaults were mounted (2 Popen calls for 2 vaults)
+        assert mock_popen.call_count == 2
