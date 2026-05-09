@@ -2,11 +2,9 @@ from pathlib import Path
 from typing import Optional
 
 import typer
-import yaml
 from keepass_wrapper.keepass import KeePass  # type: ignore[import-untyped]
-from pydantic import ValidationError
 
-from mount_encrypted_filesystem.config import BatchConfig
+from mount_encrypted_filesystem.batch import BatchMountError, batch_mount
 from mount_encrypted_filesystem.mount import AlreadyMountedError, mount_encrypted_fs
 
 app = typer.Typer(help="Mount encrypted filesystems using passwords from KeePass")
@@ -57,43 +55,13 @@ def batch(
     batch_file: Path = typer.Argument(..., help="Path to batch YAML file"),
 ) -> None:
     """Mount multiple encrypted filesystems from a batch configuration file."""
-    # Load and parse the batch file
-    with open(batch_file, encoding="utf-8") as f:
-        raw_data = yaml.safe_load(f)
-
     try:
-        batch_config = BatchConfig(**raw_data)
-    except ValidationError as e:
-        typer.echo(f"Error: Invalid batch configuration: {e}")
+        batch_mount(str(batch_file))
+    except BatchMountError as e:
+        typer.echo(f"Error: {e}")
         raise typer.Exit(1)
 
-    # Initialize KeePass with database path
-    kp = KeePass(database_path=batch_config.database_path)
-
-    # Mount each vault in the batch
-    mounted_count = 0
-    for vault_config in batch_config.vaults:
-        vault_enc = vault_config.vault_enc
-        vault_dec = vault_config.vault_dec
-        title = vault_config.title
-        enctype = vault_config.enctype
-
-        try:
-            typer.echo(f"Mounting {vault_enc} -> {vault_dec}...")
-            mount_encrypted_fs(
-                vault_enc=vault_enc,
-                vault_dec=vault_dec,
-                kp=kp,
-                enctype=enctype,
-                title=title,
-            )
-            typer.echo(f"Successfully mounted {vault_enc}")
-            mounted_count += 1
-        except (ValueError, AlreadyMountedError) as e:
-            typer.echo(f"Skipping {vault_enc}: {e}")
-            continue
-
-    typer.echo(f"Batch mount completed. {mounted_count} vault(s) mounted.")
+    typer.echo("Batch mount completed.")
 
 
 def main() -> None:
