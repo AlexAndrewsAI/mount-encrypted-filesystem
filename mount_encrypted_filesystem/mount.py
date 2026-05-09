@@ -3,7 +3,6 @@ import os
 import shutil
 import subprocess
 
-# Import keypass related stuff
 from keepass_wrapper.keepass import KeePass  # type: ignore[import-untyped]
 
 from mount_encrypted_filesystem.config import (
@@ -21,9 +20,9 @@ class AlreadyMountedError(RuntimeError):
 
 
 def mount_encrypted_fs(
+    kp: KeePass,
     vault_enc: str | None = None,
     vault_dec: str | None = None,
-    kp: KeePass | None = None,
     enctype: str | None = None,
     title: str | None = None,
     return_kp: bool = False,
@@ -32,9 +31,9 @@ def mount_encrypted_fs(
     """Mount an encrypted filesystem using a password from KeePass.
 
     Args:
+        kp: KeePass instance for password retrieval (required)
         vault_enc: Path to encrypted vault directory
         vault_dec: Path to mount decrypted vault
-        kp: KeePass instance for password retrieval
         enctype: Encryption type (gocryptfs or cryfs). Auto-detected if not specified.
         title: Title to match in KeePass entries (defaults to enctype)
         return_kp: Whether to return the KeePass object
@@ -83,15 +82,12 @@ def mount_encrypted_fs(
 
     # Validate that enctype is a valid system command
     if shutil.which(enctype) is None:
-        raise RuntimeError(f"Encryption type '{enctype}' is not installed or not found in PATH")
+        raise RuntimeError(f"Encryption type '{enctype}' is not installed")
 
 
     # check if vault is already mounted
     if not os.path.ismount(vault_dec):
         logger.info(f"Need to mount {vault_dec} drive")
-
-        if kp is None:
-            raise ValueError("kp (KeePass instance) is required but was not provided")
 
         for e in kp.entries:
             if title != e.title:
@@ -100,8 +96,8 @@ def mount_encrypted_fs(
             # Run mount command with password passed securely via stdin
             cmd = [
                 enctype,
-                f"{vault_enc}",
-                f"{vault_dec}",
+                vault_enc,
+                vault_dec,
             ]
             logger.debug(" ".join(cmd))
             p = subprocess.Popen(
@@ -114,7 +110,7 @@ def mount_encrypted_fs(
             # CPython is immutable and may be interned. True secure memory wiping
             # is not possible here; this limitation is inherited from the wrapper.
             try:
-                stdout, stderr = p.communicate(
+                _, stderr = p.communicate(
                     input=e.get_password().encode(), timeout=30
                 )
 
@@ -137,8 +133,6 @@ def mount_encrypted_fs(
         raise AlreadyMountedError(f"{vault_dec} is already mounted")
 
     if return_kp:
-        if kp is None:
-            raise ValueError("return_kp is True but kp is None")
         return kp
 
     return None

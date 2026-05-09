@@ -56,8 +56,7 @@ def test_mount_cryfs(mock_cryfs_kp: MockKeePass, tmp_path: Path) -> None:
     mnt_dir.mkdir()
 
     with patch("shutil.which") as mock_which, \
-         patch("subprocess.Popen") as mock_popen, \
-         patch("time.sleep"):
+         patch("subprocess.Popen") as mock_popen:
 
         mock_which.return_value = "/usr/bin/cryfs"
         mock_proc = MagicMock()
@@ -135,7 +134,7 @@ def test_already_mounted_raises_error(
             )
 
 
-def test_missing_enctype_raises_error() -> None:
+def test_missing_enctype_raises_error(mock_gocryptfs_kp: MockKeePass) -> None:
     with patch("shutil.which") as mock_which:
         mock_which.return_value = None
 
@@ -143,6 +142,7 @@ def test_missing_enctype_raises_error() -> None:
             RuntimeError, match="Encryption type 'gocryptfs' is not installed"
         ):
             mount_encrypted_fs(
+                kp=mock_gocryptfs_kp,
                 vault_enc="/fake/enc",
                 vault_dec="/fake/dec",
                 enctype="gocryptfs",
